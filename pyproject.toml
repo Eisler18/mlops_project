@@ -4,4 +4,20 @@ version = "0.1.0"
 description = "MLOps project"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "kagglehub>=1.0.0",
+    "matplotlib>=3.10.8",
+    "pandas>=3.0.2",
+    "pylint>=4.0.5",
+    "pytorch-lightning>=2.6.1",
+    "scikit-learn>=1.8.0",
+]
+
+[tool.pylint.messages_control]
+disable = [
+  "C0111"  # missing-docstring
+]
+
+[tool.pylint.format]
+max-line-length = 120
+indent-string = "  "
