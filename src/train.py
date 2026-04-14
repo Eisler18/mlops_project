@@ -1,14 +1,15 @@
 
+import argparse
+from pathlib import Path
+
 import torch
-import torch.nn as nn
+from torch import nn
 from torchmetrics import MeanSquaredError
 from pytorch_lightning import seed_everything, LightningModule, Trainer, Callback
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import matplotlib.pyplot as plt
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
-import argparse
-from pathlib import Path
 
 from data_module import TemperatureDataModule
 
@@ -20,6 +21,7 @@ DEFAULT_LR = 1e-3
 DEFAULT_MODEL = 'lstm'
 seed_everything(SEED)
 
+# pylint: disable=arguments-differ
 class TemperaturePredictor(LightningModule):
   def __init__(self, model, learning_rate=1e-3, optimizer=torch.optim.Adam):
     super().__init__()
@@ -103,16 +105,22 @@ class PlotCallback(Callback):
     plt.tight_layout()
     plt.show()
 
-
+# pylint: disable=too-many-arguments
 class BaseRNNModel(nn.Module):
-  def __init__(self, input_size, h=1, hidden_size=64, num_layers=2, dropout=0.0, pooling='last', model='rnn'):
+  def __init__(self, input_size, *, h=1, hidden_size=64, num_layers=2, dropout=0.0, pooling='last', model='rnn'):
     super().__init__()
     # Posibles modelos
     models = { 'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU }
 
     # Inicializamos
     self.pooling = pooling
-    self.rnn = models[model](input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout)
+    self.rnn = models[model](
+      input_size=input_size,
+      hidden_size=hidden_size,
+      num_layers=num_layers,
+      batch_first=True,
+      dropout=dropout
+    )
     self.out = nn.Linear(hidden_size, h)
 
   def forward(self, x):
@@ -125,7 +133,8 @@ class BaseRNNModel(nn.Module):
       x = torch.amax(outputs, dim=1)
     x = self.out(x)
     return x
-  
+# pylint: enable=(arguments-differ, too-many-arguments)
+
 def main():
   # Hiperparametros
   parser = argparse.ArgumentParser(description='Train a temperature predictor model.')
@@ -133,7 +142,14 @@ def main():
   parser.add_argument('--w', type=int, default=DEFAULT_W, help='Window size for input sequences')
   parser.add_argument('--h', type=int, default=DEFAULT_H, help='Horizon for prediction')
   parser.add_argument('--lr', type=float, default=DEFAULT_LR, help='Learning rate for the optimizer')
-  parser.add_argument('--model', type=str, default=DEFAULT_MODEL, choices=['rnn', 'lstm', 'gru'], help='Type of RNN model to use')
+  parser.add_argument(
+    '--model', 
+    type=str,
+    default=DEFAULT_MODEL,
+    choices=['rnn', 'lstm', 'gru'],
+    help='Type of RNN model to use'
+  )
+
   args = parser.parse_args()
   batch_size = args.batch_size
   w = args.w
