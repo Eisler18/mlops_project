@@ -12,13 +12,15 @@ import kagglehub
 from kagglehub import KaggleDatasetAdapter
 
 from data_module import TemperatureDataModule
+from utils import load_config
 
-SEED = 42
-DEFAULT_BATCH_SIZE = 64
-DEFAULT_W = 6
-DEFAULT_H = 1
-DEFAULT_LR = 1e-3
-DEFAULT_MODEL = 'lstm'
+config = load_config('hyperparams')
+SEED = config['training_config']['seed']
+DEFAULT_BATCH_SIZE = config['training_config']['batch_size']
+DEFAULT_W = config['training_config']['w']
+DEFAULT_H = config['training_config']['h']
+DEFAULT_LR = config['training_config']['lr']
+DEFAULT_MODEL = config['training_config']['model']
 seed_everything(SEED)
 
 # pylint: disable=arguments-differ
