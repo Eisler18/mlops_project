@@ -12,3 +12,12 @@ dependencies = [
     "pytorch-lightning>=2.6.1",
     "scikit-learn>=1.8.0",
 ]
+
+[tool.pylint.messages_control]
+disable = [
+  "C0111"  # missing-docstring
+]
+
+[tool.pylint.format]
+max-line-length = 120
+indent-string = "  "

@@ -8,8 +8,6 @@ from sklearn.feature_selection import SelectKBest, mutual_info_regression
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
 
-SEED = 42
-
 class TemperatureDataset(Dataset):
   def __init__(self, df, w=4, h=1):
     self.features = df.drop(columns=['date', 'T']).values
@@ -24,9 +22,10 @@ class TemperatureDataset(Dataset):
     features = self.features[idx:idx + self.w]
     target = self.target[idx + self.w: idx + self.w + self.h]
     return features, target
-  
+
+# pylint: disable=(too-many-instance-attributes, too-many-arguments)
 class TemperatureDataModule(LightningDataModule):
-  def __init__(self, df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy=None):
+  def __init__(self, df, *, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy=None):
     super().__init__()
     # Inicalizamos los atributos de la clase
     self.data = df
@@ -37,16 +36,20 @@ class TemperatureDataModule(LightningDataModule):
     # Preprocesamos el dataset
     self.data.drop_duplicates(inplace=True) # Quitamos duplicados
     self.impute_missing_values() # Imputamos valores faltantes
-    self.train_df, self.val_df, self.test_df = self.sequential_train_val_test_split(val_size=val_size, test_size=test_size) # Split
+    self.train_df, self.val_df, self.test_df = self.sequential_train_val_test_split(
+      val_size=val_size, test_size=test_size
+    )
     self.feature_scaler, self.target_scaler = self.normalize() # Normalizamos
     self.reductor = self.feature_reduction(reduction_strategy) # Reducimos dimensionalidad
 
+  # pylint: disable=attribute-defined-outside-init
   def setup(self, stage=None):
     if stage == 'fit':
       self.train_dataset = TemperatureDataset(self.train_df, w=self.w, h=self.h)
       self.val_dataset = TemperatureDataset(self.val_df, w=self.w, h=self.h)
     elif stage == 'test':
       self.test_dataset = TemperatureDataset(self.test_df, w=self.w, h=self.h)
+  # pylint: enable=attribute-defined-outside-init
 
   def impute_missing_values(self):
     # Buscamos fechas faltante
@@ -55,7 +58,6 @@ class TemperatureDataModule(LightningDataModule):
     missing_dates = date_range[~date_range.isin(self.data.date)]
 
     # Agregamos las fechas
-    missing_df = pd.DataFrame({ 'date': missing_dates })
     self.data = pd.concat([self.data, pd.DataFrame({ 'date': missing_dates })]).reset_index(drop=True)
 
     # Interpolamos los datos faltantes
@@ -105,7 +107,7 @@ class TemperatureDataModule(LightningDataModule):
 
     if strategy == 'pca':
       # Inicializamos PCA
-      pca = PCA(n_components=k, random_state=SEED)
+      pca = PCA(n_components=k)
 
       # Ajustamos con train y transformamos todo
       pca_train = pca.fit_transform(self.train_df[features_to_transform])
@@ -125,7 +127,7 @@ class TemperatureDataModule(LightningDataModule):
 
       return pca
 
-    elif strategy == 'selection':
+    if strategy == 'selection':
       # Inicializamos KBest
       k_best = SelectKBest(mutual_info_regression, k=k)
 
@@ -141,6 +143,8 @@ class TemperatureDataModule(LightningDataModule):
       self.test_df = self.test_df[best_features]
 
       return k_best
+
+    return None
 
   def collate_fn(self, batch):
     features, targets = zip(*batch)
@@ -160,3 +164,4 @@ class TemperatureDataModule(LightningDataModule):
 
   def test_dataloader(self):
     return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate_fn)
+# pylint: enable=(too-many-instance-attributes, too-many-arguments)
