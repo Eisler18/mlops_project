@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "pandas>=3.0.2",
     "pylint>=4.0.5",
+    "pytest>=9.0.3",
     "pytorch-lightning>=2.6.1",
     "scikit-learn>=1.8.0",
 ]
@@ -21,3 +22,11 @@ disable = [
 [tool.pylint.format]
 max-line-length = 120
 indent-string = "  "
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["src"]
