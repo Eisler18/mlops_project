@@ -4,7 +4,7 @@ import pandas as pd
 
 from data_module import TemperatureDataModule, TemperatureDataset
 
-@pytest.fixture(name='df')
+@pytest.fixture(name='df', scope='session')
 def sample_dataframe():
   data = {
     'date': pd.date_range(start='2023-01-01', periods=10, freq='10min'),
