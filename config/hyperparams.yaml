@@ -1,0 +1,7 @@
+training_config:
+  batch_size: 64
+  w: 4
+  h: 1
+  lr: 0.001
+  model: lstm
+  seed: 42
