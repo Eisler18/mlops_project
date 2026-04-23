@@ -1,8 +1,10 @@
+# Environment variables and secrets
+.env
 .venv
 
+# Cache files
 __pycache__/
 .ipynb_checkpoints/
-
 lightning_logs/
 
 *.ckpt
