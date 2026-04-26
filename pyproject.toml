@@ -34,7 +34,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["src"]
-addopts = "--cov=src --cov-report=html --cov-report=term-missing"
+addopts = "--cov=src --cov-report=term-missing -W ignore"
+filterwarnings = ["ignore"]
 
 [tool.coverage.run]
 branch = true
