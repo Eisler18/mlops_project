@@ -5,3 +5,4 @@ training_config:
   lr: 0.001
   model: lstm
   seed: 42
+  epochs: 50
