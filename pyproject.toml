@@ -13,6 +13,7 @@ dependencies = [
     "pytest-cov>=5.0.0",
     "pytorch-lightning>=2.6.1",
     "scikit-learn>=1.8.0",
+    "wandb>=0.26.1",
 ]
 
 [tool.pylint.messages_control]
