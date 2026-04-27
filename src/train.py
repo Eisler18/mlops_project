@@ -6,6 +6,7 @@ from torch import nn
 from torchmetrics import MeanSquaredError
 from pytorch_lightning import seed_everything, LightningModule, Trainer, Callback
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
@@ -144,6 +145,7 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
     help='Type of RNN model to use'
   )
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
+  parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
 
   seed_everything(training_config['seed'])
 
@@ -159,7 +161,8 @@ def prepare_data_module(batch_size, w, h):
 
   return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
 
-def train(data_module, learning_rate, model_name, epochs, plot=True):
+# pylint: disable=too-many-arguments
+def train(data_module, learning_rate, model_name, epochs, *, plot=True, logger=True):
   data_module.setup('fit')
   input_size = data_module.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
@@ -167,21 +170,55 @@ def train(data_module, learning_rate, model_name, epochs, plot=True):
   model = BaseRNNModel(input_size=input_size, h=data_module.h, model=model_name)
   module = TemperaturePredictor(model, learning_rate=learning_rate)
 
+  # W&B logger
+  if logger:
+    wandb_logger = WandbLogger(
+      project='temperature-forecasting',
+      name=f'{model_name}_w{data_module.w}_h{data_module.h}_lr{learning_rate}_batch_size{data_module.batch_size}',
+      config={
+        'learning_rate': learning_rate,
+        'model_name': model_name,
+        'window_size': data_module.w,
+        'horizon': data_module.h,
+        'epochs': epochs,
+        'batch_size': data_module.batch_size
+      },
+      log_model=True,
+      job_type='train'
+    )
+  else:
+    wandb_logger = None
+
+  # ModelCheckpoint with W&B integration
+  checkpoint_callback = ModelCheckpoint(
+    monitor='val_loss',
+    filename=model_name,
+    dirpath=chk_path,
+    enable_version_counter=False,
+    save_top_k=1,
+    mode='min'
+  )
+
   callbacks = [
     EarlyStopping(monitor='val_loss', patience=5),
-    ModelCheckpoint(monitor='val_loss', filename=model_name, dirpath=chk_path, enable_version_counter=False)
+    checkpoint_callback
   ]
   if plot:
     callbacks.append(PlotCallback())
 
   trainer = Trainer(
     deterministic=True,
-    callbacks = callbacks,
-    max_epochs=epochs
+    callbacks=callbacks,
+    max_epochs=epochs,
+    logger=wandb_logger
   )
 
   trainer.fit(module, data_module)
   trainer.test(module, data_module)
+
+  if wandb_logger:
+    wandb_logger.finalize("success")
+# pylint: enable=too-many-arguments
 
 if __name__ == "__main__":
   args = load_hyperparams()
@@ -190,5 +227,6 @@ if __name__ == "__main__":
     data_module=prepare_data_module(args.batch_size, args.w, args.h),
     learning_rate=args.lr,
     model_name=args.model,
-    epochs=args.epochs
+    epochs=args.epochs,
+    plot=args.plot
   )

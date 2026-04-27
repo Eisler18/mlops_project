@@ -112,7 +112,8 @@ def test_train_loop(data_module):
     model_name='rnn',
     learning_rate=1e-3,
     epochs=1,
-    plot=False
+    plot=False,
+    logger=False
   )
 
   chk_path = get_project_root() / 'models' / 'rnn.ckpt'
