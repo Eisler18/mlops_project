@@ -218,6 +218,7 @@ def train(data_module, hparams, *, plot=True, logger=True):
       name=f'train_{group_id}',
       config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
       log_model=True,
+      checkpoint_name=hparams.model_name,
       job_type='train',
       group=group_id
     )
