@@ -139,9 +139,9 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   parser.add_argument('--h', type=int, default=training_config['h'], help='Horizon for prediction')
   parser.add_argument('--lr', type=float, default=training_config['lr'], help='Learning rate for the optimizer')
   parser.add_argument(
-    '--model', 
+    '--model_name', 
     type=str,
-    default=training_config['model'],
+    default=training_config['model_name'],
     choices=['rnn', 'lstm', 'gru'],
     help='Type of RNN model to use'
   )
@@ -197,7 +197,7 @@ def train(data_module, hparams, *, plot=True, logger=True):
   model = BaseRNNModel(
     input_size=input_size,
     h=data_module.h,
-    model=hparams.model,
+    model=hparams.model_name,
     hidden_size=hparams.hidden_size,
     num_layers=hparams.num_layers,
     dropout=hparams.dropout,
@@ -230,7 +230,7 @@ def train(data_module, hparams, *, plot=True, logger=True):
   # ModelCheckpoint with W&B integration
   checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
-    filename=hparams.model,
+    filename=hparams.model_name,
     dirpath=chk_path,
     enable_version_counter=False,
     save_top_k=1,

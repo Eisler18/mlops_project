@@ -97,7 +97,7 @@ def test_load_hyperparams():
   assert hasattr(hyperparams, 'w')
   assert hasattr(hyperparams, 'h')
   assert hasattr(hyperparams, 'lr')
-  assert hasattr(hyperparams, 'model')
+  assert hasattr(hyperparams, 'model_name')
   assert hasattr(hyperparams, 'epochs')
   assert hasattr(hyperparams, 'dropout')
   assert hasattr(hyperparams, 'hidden_size')
@@ -119,7 +119,7 @@ def test_train_loop(data_module):
     w=4,
     h=1,
     lr=1e-3,
-    model='rnn',
+    model_name='rnn',
     hidden_size=16,
     num_layers=1,
     dropout=0.0,

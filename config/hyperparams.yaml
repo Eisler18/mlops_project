@@ -7,6 +7,6 @@ training_config:
   hidden_size: 64
   num_layers: 2
   pooling: last
-  model: lstm
+  model_name: lstm
   seed: 42
   epochs: 50
