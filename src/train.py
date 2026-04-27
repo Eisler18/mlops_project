@@ -1,5 +1,6 @@
 
 import argparse
+import uuid
 
 import torch
 from torch import nn
@@ -167,10 +168,17 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   )
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
   parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
+  parser.add_argument(
+    '--reduction_strategy',
+    type=str,
+    default=None,
+    choices=['pca', 'selection', None],
+    help='Feature reduction strategy (pca, selection, or None)'
+  )
 
   return parser.parse_args(args_list)
 
-def prepare_data_module(batch_size, w, h):
+def prepare_data_module(batch_size, w, h, reduction_strategy=None):
   df = kagglehub.dataset_load(
     KaggleDatasetAdapter.PANDAS,
     'alistairking/weather-long-term-time-series-forecasting',
@@ -178,7 +186,7 @@ def prepare_data_module(batch_size, w, h):
     pandas_kwargs={'parse_dates': ['date']}
   )
 
-  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
+  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
 
 # pylint: disable=too-many-arguments
 def train(data_module, hparams, *, plot=True, logger=True):
@@ -200,13 +208,22 @@ def train(data_module, hparams, *, plot=True, logger=True):
   # W&B logger
   if logger:
     config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
+
+    # Capturamos información de preprocessing
+    group_id = str(uuid.uuid4())
+    preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
+
     wandb_logger = WandbLogger(
       project='temperature-forecasting',
-      name='-'.join([f'{hparam}_{value}' for hparam, value in config.items()]),
-      config=config,
+      name=f'train_{group_id}',
+      config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
       log_model=True,
-      job_type='train'
+      job_type='train',
+      group=group_id
     )
+
+    # Asociamos el artefacto de preprocessing
+    wandb_logger.use_artifact(preprocessing_artifact_ref)
   else:
     wandb_logger = None
 
@@ -247,7 +264,7 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   train(
-    data_module=prepare_data_module(args.batch_size, args.w, args.h),
+    data_module=prepare_data_module(args.batch_size, args.w, args.h, reduction_strategy=args.reduction_strategy),
     hparams=args,
     plot=args.plot
   )

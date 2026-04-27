@@ -1,4 +1,8 @@
 
+import pickle
+import tempfile
+from pathlib import Path
+
 import torch
 import pandas as pd
 import numpy as np
@@ -7,6 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.feature_selection import SelectKBest, mutual_info_regression
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
+import wandb
 
 class TemperatureDataset(Dataset):
   def __init__(self, df, w=4, h=1):
@@ -32,6 +37,9 @@ class TemperatureDataModule(LightningDataModule):
     self.w = w
     self.h = h
     self.batch_size = batch_size
+    self.val_size = val_size
+    self.test_size = test_size
+    self.reduction_strategy = reduction_strategy
 
     # Preprocesamos el dataset
     self.data.drop_duplicates(inplace=True) # Quitamos duplicados
@@ -164,4 +172,61 @@ class TemperatureDataModule(LightningDataModule):
 
   def test_dataloader(self):
     return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, collate_fn=self.collate_fn)
+
+  def log_preprocessing_artifacts(self, group=None):
+    # Guardamos los archivos temporalmente
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      tmp_path = Path(tmp_dir)
+
+      feature_scaler_path = tmp_path / 'feature_scaler.pkl'
+      target_scaler_path = tmp_path / 'target_scaler.pkl'
+      reductor_path = tmp_path / 'reductor.pkl'
+
+      with open(feature_scaler_path, 'wb') as f:
+        pickle.dump(self.feature_scaler, f)
+
+      with open(target_scaler_path, 'wb') as f:
+        pickle.dump(self.target_scaler, f)
+
+      if self.reductor is not None:
+        with open(reductor_path, 'wb') as f:
+          pickle.dump(self.reductor, f)
+
+      # Preparamos la configuración para W&B
+      config = {
+        'val_size': self.val_size,
+        'test_size': self.test_size,
+        'train_size': 1.0 - self.val_size - self.test_size,
+        'reduction_strategy': self.reduction_strategy,
+        'n_features': self.train_df.shape[1] - 2  # Restamos 'date' y 'T'
+      }
+
+      with wandb.init(
+        project='temperature-forecasting',
+        job_type='preprocessing',
+        config=config,
+        name=f'preprocessing_{group}',
+        group=group
+      ) as wandb_run:
+        # Creamos el artefacto de preprocessing
+        preprocessing_artifact = wandb.Artifact(
+          name="preprocessing-artifacts",
+          type="preprocessing"
+        )
+
+        # Cargamos los archivos al artefacto
+        preprocessing_artifact.add_file(str(feature_scaler_path), name="feature_scaler.pkl")
+        preprocessing_artifact.add_file(str(target_scaler_path), name="target_scaler.pkl")
+
+        if self.reductor is not None:
+          preprocessing_artifact.add_file(str(reductor_path), name="reductor.pkl")
+
+        # Guardamos el artefacto en W&B
+        artifact_used = wandb_run.log_artifact(preprocessing_artifact)
+
+        # Esperamos a que el artefacto se registre completamente
+        artifact_used.wait()
+
+        # Retornamos la referencia
+        return artifact_used.name
 # pylint: enable=(too-many-instance-attributes, too-many-arguments)
