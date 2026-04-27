@@ -3,6 +3,10 @@ training_config:
   w: 4
   h: 1
   lr: 0.001
+  dropout: 0.0
+  hidden_size: 64
+  num_layers: 2
+  pooling: last
   model: lstm
   seed: 42
   epochs: 50

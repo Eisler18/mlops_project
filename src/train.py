@@ -144,10 +144,29 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
     choices=['rnn', 'lstm', 'gru'],
     help='Type of RNN model to use'
   )
+  parser.add_argument(
+    '--dropout',
+    type=float,
+    default=training_config['dropout'],
+    help='Dropout rate for the RNN layers'
+  )
+  parser.add_argument(
+    '--hidden_size',
+    type=int,
+    default=training_config['hidden_size'],
+    help='Number of hidden units in the RNN layers'
+  )
+  parser.add_argument('--num_layers', type=int, default=training_config['num_layers'], help='Number of RNN layers')
+  parser.add_argument('--seed', type=int, default=training_config['seed'], help='Random seed for reproducibility')
+  parser.add_argument(
+    '--pooling',
+    type=str,
+    default=training_config['pooling'],
+    choices=['last', 'mean', 'max'],
+    help='Pooling strategy for RNN outputs'
+  )
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
   parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
-
-  seed_everything(training_config['seed'])
 
   return parser.parse_args(args_list)
 
@@ -162,27 +181,29 @@ def prepare_data_module(batch_size, w, h):
   return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
 
 # pylint: disable=too-many-arguments
-def train(data_module, learning_rate, model_name, epochs, *, plot=True, logger=True):
+def train(data_module, hparams, *, plot=True, logger=True):
   data_module.setup('fit')
   input_size = data_module.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
 
-  model = BaseRNNModel(input_size=input_size, h=data_module.h, model=model_name)
-  module = TemperaturePredictor(model, learning_rate=learning_rate)
+  model = BaseRNNModel(
+    input_size=input_size,
+    h=data_module.h,
+    model=hparams.model,
+    hidden_size=hparams.hidden_size,
+    num_layers=hparams.num_layers,
+    dropout=hparams.dropout,
+    pooling=hparams.pooling
+  )
+  module = TemperaturePredictor(model, learning_rate=hparams.lr)
 
   # W&B logger
   if logger:
+    config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
     wandb_logger = WandbLogger(
       project='temperature-forecasting',
-      name=f'{model_name}_w{data_module.w}_h{data_module.h}_lr{learning_rate}_batch_size{data_module.batch_size}',
-      config={
-        'learning_rate': learning_rate,
-        'model_name': model_name,
-        'window_size': data_module.w,
-        'horizon': data_module.h,
-        'epochs': epochs,
-        'batch_size': data_module.batch_size
-      },
+      name='-'.join([f'{hparam}_{value}' for hparam, value in config.items()]),
+      config=config,
       log_model=True,
       job_type='train'
     )
@@ -192,7 +213,7 @@ def train(data_module, learning_rate, model_name, epochs, *, plot=True, logger=T
   # ModelCheckpoint with W&B integration
   checkpoint_callback = ModelCheckpoint(
     monitor='val_loss',
-    filename=model_name,
+    filename=hparams.model,
     dirpath=chk_path,
     enable_version_counter=False,
     save_top_k=1,
@@ -209,7 +230,7 @@ def train(data_module, learning_rate, model_name, epochs, *, plot=True, logger=T
   trainer = Trainer(
     deterministic=True,
     callbacks=callbacks,
-    max_epochs=epochs,
+    max_epochs=hparams.epochs,
     logger=wandb_logger
   )
 
@@ -223,10 +244,10 @@ def train(data_module, learning_rate, model_name, epochs, *, plot=True, logger=T
 if __name__ == "__main__":
   args = load_hyperparams()
 
+  seed_everything(args.seed)
+
   train(
     data_module=prepare_data_module(args.batch_size, args.w, args.h),
-    learning_rate=args.lr,
-    model_name=args.model,
-    epochs=args.epochs,
+    hparams=args,
     plot=args.plot
   )

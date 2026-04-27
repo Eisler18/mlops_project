@@ -1,4 +1,6 @@
 
+import argparse
+
 import pytest
 import pandas as pd
 import torch
@@ -97,6 +99,11 @@ def test_load_hyperparams():
   assert hasattr(hyperparams, 'lr')
   assert hasattr(hyperparams, 'model')
   assert hasattr(hyperparams, 'epochs')
+  assert hasattr(hyperparams, 'dropout')
+  assert hasattr(hyperparams, 'hidden_size')
+  assert hasattr(hyperparams, 'num_layers')
+  assert hasattr(hyperparams, 'seed')
+  assert hasattr(hyperparams, 'pooling')
 
 @pytest.mark.skip(reason="Requires internet connection to download dataset from Kaggle")
 def test_prepare_data_module():
@@ -107,11 +114,22 @@ def test_prepare_data_module():
   assert data_module.h == 1
 
 def test_train_loop(data_module):
+  hparams = argparse.Namespace(
+    batch_size=8,
+    w=4,
+    h=1,
+    lr=1e-3,
+    model='rnn',
+    hidden_size=16,
+    num_layers=1,
+    dropout=0.0,
+    pooling='last',
+    epochs=1
+  )
+
   train(
     data_module=data_module,
-    model_name='rnn',
-    learning_rate=1e-3,
-    epochs=1,
+    hparams=hparams,
     plot=False,
     logger=False
   )
