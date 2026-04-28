@@ -6,3 +6,11 @@
 __pycache__/
 .ipynb_checkpoints/
 lightning_logs/
+
+# Ignore model checkpoints
+*.ckpt
+
+# Ignore test and coverage reports
+.pytest_cache/
+.coverage
+htmlcov/

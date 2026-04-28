@@ -1,6 +1,5 @@
 
 import argparse
-from pathlib import Path
 
 import torch
 from torch import nn
@@ -12,16 +11,7 @@ import kagglehub
 from kagglehub import KaggleDatasetAdapter
 
 from data_module import TemperatureDataModule
-from utils import load_config
-
-config = load_config('hyperparams')
-SEED = config['training_config']['seed']
-DEFAULT_BATCH_SIZE = config['training_config']['batch_size']
-DEFAULT_W = config['training_config']['w']
-DEFAULT_H = config['training_config']['h']
-DEFAULT_LR = config['training_config']['lr']
-DEFAULT_MODEL = config['training_config']['model']
-seed_everything(SEED)
+from utils import load_config, get_project_root
 
 # pylint: disable=arguments-differ
 class TemperaturePredictor(LightningModule):
@@ -137,28 +127,29 @@ class BaseRNNModel(nn.Module):
     return x
 # pylint: enable=(arguments-differ, too-many-arguments)
 
-def main():
-  # Hiperparametros
+def load_hyperparams(config_path='hyperparams', args_list=None):
+  config = load_config(config_path)
+  training_config = config['training_config']
+
   parser = argparse.ArgumentParser(description='Train a temperature predictor model.')
-  parser.add_argument('--batch_size', type=int, default=DEFAULT_BATCH_SIZE, help='Batch size for training')
-  parser.add_argument('--w', type=int, default=DEFAULT_W, help='Window size for input sequences')
-  parser.add_argument('--h', type=int, default=DEFAULT_H, help='Horizon for prediction')
-  parser.add_argument('--lr', type=float, default=DEFAULT_LR, help='Learning rate for the optimizer')
+  parser.add_argument('--batch_size', type=int, default=training_config['batch_size'], help='Batch size for training')
+  parser.add_argument('--w', type=int, default=training_config['w'], help='Window size for input sequences')
+  parser.add_argument('--h', type=int, default=training_config['h'], help='Horizon for prediction')
+  parser.add_argument('--lr', type=float, default=training_config['lr'], help='Learning rate for the optimizer')
   parser.add_argument(
     '--model', 
     type=str,
-    default=DEFAULT_MODEL,
+    default=training_config['model'],
     choices=['rnn', 'lstm', 'gru'],
     help='Type of RNN model to use'
   )
+  parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
 
-  args = parser.parse_args()
-  batch_size = args.batch_size
-  w = args.w
-  h = args.h
-  lr = args.lr
-  model_name = args.model
+  seed_everything(training_config['seed'])
 
+  return parser.parse_args(args_list)
+
+def prepare_data_module(batch_size, w, h):
   df = kagglehub.dataset_load(
     KaggleDatasetAdapter.PANDAS,
     'alistairking/weather-long-term-time-series-forecasting',
@@ -166,26 +157,38 @@ def main():
     pandas_kwargs={'parse_dates': ['date']}
   )
 
-  data_module = TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
+  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
+
+def train(data_module, learning_rate, model_name, epochs, plot=True):
   data_module.setup('fit')
   input_size = data_module.train_dataset.features.shape[1]
-  chk_path = Path('models')
+  chk_path = get_project_root() / 'models'
 
-  model = BaseRNNModel(input_size=input_size, h=h, model=model_name)
-  module = TemperaturePredictor(model, learning_rate=lr, optimizer=torch.optim.Adam)
+  model = BaseRNNModel(input_size=input_size, h=data_module.h, model=model_name)
+  module = TemperaturePredictor(model, learning_rate=learning_rate)
+
+  callbacks = [
+    EarlyStopping(monitor='val_loss', patience=5),
+    ModelCheckpoint(monitor='val_loss', filename=model_name, dirpath=chk_path, enable_version_counter=False)
+  ]
+  if plot:
+    callbacks.append(PlotCallback())
 
   trainer = Trainer(
     deterministic=True,
-    callbacks = [
-      EarlyStopping(monitor='val_loss', patience=5),
-      ModelCheckpoint(monitor='val_loss', filename=model_name, dirpath=chk_path, enable_version_counter=False),
-      PlotCallback()
-    ],
-    max_epochs=50
+    callbacks = callbacks,
+    max_epochs=epochs
   )
 
   trainer.fit(module, data_module)
   trainer.test(module, data_module)
 
 if __name__ == "__main__":
-  main()
+  args = load_hyperparams()
+
+  train(
+    data_module=prepare_data_module(args.batch_size, args.w, args.h),
+    learning_rate=args.lr,
+    model_name=args.model,
+    epochs=args.epochs
+  )

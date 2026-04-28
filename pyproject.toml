@@ -9,6 +9,8 @@ dependencies = [
     "matplotlib>=3.10.8",
     "pandas>=3.0.2",
     "pylint>=4.0.5",
+    "pytest>=9.0.3",
+    "pytest-cov>=5.0.0",
     "pytorch-lightning>=2.6.1",
     "scikit-learn>=1.8.0",
 ]
@@ -21,3 +23,20 @@ disable = [
 [tool.pylint.format]
 max-line-length = 120
 indent-string = "  "
+
+[tool.pylint.init-hook]
+init-hook = "import sys; sys.path.insert(0, 'src')"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["src"]
+addopts = "--cov=src --cov-report=term-missing -W ignore"
+filterwarnings = ["ignore"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
