@@ -1,11 +1,13 @@
 
 import argparse
+import uuid
 
 import torch
 from torch import nn
 from torchmetrics import MeanSquaredError
 from pytorch_lightning import seed_everything, LightningModule, Trainer, Callback
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
@@ -137,19 +139,46 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   parser.add_argument('--h', type=int, default=training_config['h'], help='Horizon for prediction')
   parser.add_argument('--lr', type=float, default=training_config['lr'], help='Learning rate for the optimizer')
   parser.add_argument(
-    '--model', 
+    '--model_name', 
     type=str,
-    default=training_config['model'],
+    default=training_config['model_name'],
     choices=['rnn', 'lstm', 'gru'],
     help='Type of RNN model to use'
   )
+  parser.add_argument(
+    '--dropout',
+    type=float,
+    default=training_config['dropout'],
+    help='Dropout rate for the RNN layers'
+  )
+  parser.add_argument(
+    '--hidden_size',
+    type=int,
+    default=training_config['hidden_size'],
+    help='Number of hidden units in the RNN layers'
+  )
+  parser.add_argument('--num_layers', type=int, default=training_config['num_layers'], help='Number of RNN layers')
+  parser.add_argument('--seed', type=int, default=training_config['seed'], help='Random seed for reproducibility')
+  parser.add_argument(
+    '--pooling',
+    type=str,
+    default=training_config['pooling'],
+    choices=['last', 'mean', 'max'],
+    help='Pooling strategy for RNN outputs'
+  )
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
-
-  seed_everything(training_config['seed'])
+  parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
+  parser.add_argument(
+    '--reduction_strategy',
+    type=str,
+    default=None,
+    choices=['pca', 'selection', None],
+    help='Feature reduction strategy (pca, selection, or None)'
+  )
 
   return parser.parse_args(args_list)
 
-def prepare_data_module(batch_size, w, h):
+def prepare_data_module(batch_size, w, h, reduction_strategy=None):
   df = kagglehub.dataset_load(
     KaggleDatasetAdapter.PANDAS,
     'alistairking/weather-long-term-time-series-forecasting',
@@ -157,38 +186,86 @@ def prepare_data_module(batch_size, w, h):
     pandas_kwargs={'parse_dates': ['date']}
   )
 
-  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h)
+  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
 
-def train(data_module, learning_rate, model_name, epochs, plot=True):
+# pylint: disable=too-many-arguments
+def train(data_module, hparams, *, plot=True, logger=True):
   data_module.setup('fit')
   input_size = data_module.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
 
-  model = BaseRNNModel(input_size=input_size, h=data_module.h, model=model_name)
-  module = TemperaturePredictor(model, learning_rate=learning_rate)
+  model = BaseRNNModel(
+    input_size=input_size,
+    h=data_module.h,
+    model=hparams.model_name,
+    hidden_size=hparams.hidden_size,
+    num_layers=hparams.num_layers,
+    dropout=hparams.dropout,
+    pooling=hparams.pooling
+  )
+  module = TemperaturePredictor(model, learning_rate=hparams.lr)
+
+  # W&B logger
+  if logger:
+    config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
+
+    # Capturamos información de preprocessing
+    group_id = str(uuid.uuid4())
+    preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
+
+    wandb_logger = WandbLogger(
+      project='temperature-forecasting',
+      name=f'train_{group_id}',
+      config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
+      log_model=True,
+      checkpoint_name=hparams.model_name,
+      job_type='train',
+      group=group_id
+    )
+
+    # Asociamos el artefacto de preprocessing
+    wandb_logger.use_artifact(preprocessing_artifact_ref)
+  else:
+    wandb_logger = None
+
+  # ModelCheckpoint with W&B integration
+  checkpoint_callback = ModelCheckpoint(
+    monitor='val_loss',
+    filename=hparams.model_name,
+    dirpath=chk_path,
+    enable_version_counter=False,
+    save_top_k=1,
+    mode='min'
+  )
 
   callbacks = [
     EarlyStopping(monitor='val_loss', patience=5),
-    ModelCheckpoint(monitor='val_loss', filename=model_name, dirpath=chk_path, enable_version_counter=False)
+    checkpoint_callback
   ]
   if plot:
     callbacks.append(PlotCallback())
 
   trainer = Trainer(
     deterministic=True,
-    callbacks = callbacks,
-    max_epochs=epochs
+    callbacks=callbacks,
+    max_epochs=hparams.epochs,
+    logger=wandb_logger
   )
 
   trainer.fit(module, data_module)
   trainer.test(module, data_module)
 
+  if wandb_logger:
+    wandb_logger.finalize("success")
+# pylint: enable=too-many-arguments
+
 if __name__ == "__main__":
   args = load_hyperparams()
 
+  seed_everything(args.seed)
+
   train(
-    data_module=prepare_data_module(args.batch_size, args.w, args.h),
-    learning_rate=args.lr,
-    model_name=args.model,
-    epochs=args.epochs
+    data_module=prepare_data_module(args.batch_size, args.w, args.h, reduction_strategy=args.reduction_strategy),
+    hparams=args,
+    plot=args.plot
   )

@@ -1,8 +1,12 @@
 training_config:
-  batch_size: 64
-  w: 4
+  batch_size: 128
+  w: 72
   h: 1
-  lr: 0.001
-  model: lstm
+  lr: 0.0004865138391933615
+  dropout: 0.27672218127428627
+  hidden_size: 256
+  num_layers: 1
+  pooling: last
+  model_name: lstm
   seed: 42
   epochs: 50

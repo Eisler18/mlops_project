@@ -14,3 +14,6 @@ lightning_logs/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# WandB logs
+wandb/
