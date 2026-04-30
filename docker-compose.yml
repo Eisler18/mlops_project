@@ -1,0 +1,17 @@
+services:
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile.train
+    container_name: mlops-train
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UV_NO_DEV=1
+    # Run with: docker-compose run train
+
+  #TODO
+  #api:

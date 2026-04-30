@@ -1,0 +1,37 @@
+# Source control
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Environments
+venv/
+env/
+.venv
+
+# Logs & cache
+*.log
+.coverage
+htmlcov/
+lightning_logs/
+wandb/
+
+# Development
+notebooks/
+tests/
+.env
+.ipynb_checkpoints/
+
+# Directories mounted as volumes 
+models/
+data/
+config/
