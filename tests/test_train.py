@@ -6,8 +6,8 @@ import pandas as pd
 import torch
 from torch.nn import RNN, LSTM, GRU, L1Loss, Linear
 
-from train import TemperaturePredictor, BaseRNNModel, load_hyperparams, prepare_data_module, train
-from data_module import TemperatureDataModule
+from train.train import TemperaturePredictor, BaseRNNModel, load_hyperparams, prepare_data_module, train
+from train.data_module import TemperatureDataModule
 from utils import get_project_root
 
 @pytest.fixture(scope='function', name='data_module')
