@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  pytest:
+  code-quality:
     runs-on: ubuntu-22.04
 
     steps:
