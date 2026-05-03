@@ -1,32 +1,29 @@
+from pathlib import Path
+
 import torch
 from torch import nn
-from pytorch_lightning import LightningModule, Callback
+from pytorch_lightning import LightningModule
 from torchmetrics import MeanSquaredError
 
 
-
-import torch
-from pathlib import Path
-
-
 def export_ckpt(ckpt_path: str, output_path: str):
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+  ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
 
-    # Lightning usually stores weights here
-    state_dict = ckpt.get("state_dict", ckpt)
+  # Lightning usually stores weights here
+  state_dict = ckpt.get("state_dict", ckpt)
 
-    # Clean prefix if needed
-    cleaned_state_dict = {
-        k.replace("model.", ""): v
-        for k, v in state_dict.items()
-    }
+  # Clean prefix if needed
+  cleaned_state_dict = {
+      k.replace("model.", ""): v
+      for k, v in state_dict.items()
+  }
 
-    torch.save(
-        {"state_dict": cleaned_state_dict},
-        output_path
-    )
+  torch.save(
+      {"state_dict": cleaned_state_dict},
+      output_path
+  )
 
-    print(f"Saved clean model to {output_path}")
+  print(f"Saved clean model to {output_path}")
 
 
 if __name__ == "__main__":
@@ -65,45 +62,49 @@ class BaseRNNModel(nn.Module):
   
 
 class TemperaturePredictor(LightningModule):
-    def __init__(self, model, learning_rate=1e-3, optimizer=torch.optim.Adam):
-      super().__init__()
-      self.save_hyperparameters()
-      self.learning_rate = learning_rate
+  def __init__(self, model, learning_rate=1e-3, optimizer=torch.optim.Adam):
+    super().__init__()
+    self.save_hyperparameters()
+    self.learning_rate = learning_rate
 
-      self.model = model
-      self.optimizer = optimizer
+    self.model = model
+    self.optimizer = optimizer
 
-      self.criterion = nn.L1Loss()
-      self.rmse = MeanSquaredError(squared=False)
+    self.criterion = nn.L1Loss()
+    self.rmse = MeanSquaredError(squared=False)
 
-    def forward(self, x):
-      return self.model(x)
+  # pylint: disable=arguments-differ
+  def forward(self, x):
+    return self.model(x)
 
-    def process_step(self, batch, split='train'):
-      inputs, targets = batch
-      output = self(inputs)
+  def process_step(self, batch, split='train'):
+    inputs, targets = batch
+    output = self(inputs)
 
-      preds = output.view(-1)
-      targets = targets.view(-1)
+    preds = output.view(-1)
+    targets = targets.view(-1)
 
-      loss = self.criterion(preds, targets)
-      self.log_dict(
-          {
-              f'{split}_loss': loss,
-              f'{split}_rmse': self.rmse(preds, targets),
-          },
-          on_epoch=True, on_step=False, prog_bar=True)
+    loss = self.criterion(preds, targets)
+    self.log_dict(
+        {
+            f'{split}_loss': loss,
+            f'{split}_rmse': self.rmse(preds, targets),
+        },
+        on_epoch=True, on_step=False, prog_bar=True)
 
-      return loss
+    return loss
 
-    def training_step(self, batch, _batch_idx):
-      return self.process_step(batch, 'train')
+  # pylint: disable=arguments-differ
+  def training_step(self, batch, _batch_idx):
+    return self.process_step(batch, 'train')
 
-    def validation_step(self, batch, _batch_idx):
-      return self.process_step(batch, 'val')
+  # pylint: disable=arguments-differ
+  def validation_step(self, batch, _batch_idx):
+    return self.process_step(batch, 'val')
 
-    def test_step(self, batch, _batch_idx):
-      return self.process_step(batch, 'test')
+  # pylint: disable=arguments-differ
+  def test_step(self, batch, _batch_idx):
+    return self.process_step(batch, 'test')
 
-    def configure_optimizers(self):
-      return self.optimizer(self.parameters(), lr=self.learning_rate)
+  def configure_optimizers(self):
+    return self.optimizer(self.parameters(), lr=self.learning_rate)
