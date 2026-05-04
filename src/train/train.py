@@ -1,6 +1,7 @@
 
 import argparse
 import uuid
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -11,9 +12,10 @@ from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
+import wandb
 
-from data_module import TemperatureDataModule
-from utils import load_config, get_project_root
+from .data_module import TemperatureDataModule
+from ..utils import load_config, get_project_root
 
 # pylint: disable=arguments-differ
 class TemperaturePredictor(LightningModule):
@@ -188,6 +190,33 @@ def prepare_data_module(batch_size, w, h, reduction_strategy=None):
 
   return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
 
+
+def _export_model(trainer, module, hparams, input_size, wandb_logger):
+  """Export trained model to .pt format and log to W&B."""
+  best_ckpt = Path(trainer.checkpoint_callback.best_model_path)
+  pt_path = best_ckpt.with_suffix(".pt")
+
+  torch.save(
+      {
+          "state_dict": module.model.state_dict(),
+          "input_size": input_size,
+          "model_name": hparams.model_name,
+      },
+      pt_path,
+  )
+  print(f"[export] Guardado {pt_path}")
+
+  if wandb_logger:
+      artifact = wandb.Artifact(
+          name=f"{hparams.model_name}-clean",
+          type="model",
+          metadata={"input_size": input_size, "model_name": hparams.model_name},
+      )
+      artifact.add_file(str(pt_path))
+      wandb_logger.experiment.log_artifact(artifact)
+      wandb_logger.finalize("success")
+
+
 # pylint: disable=too-many-arguments
 def train(data_module, hparams, *, plot=True, logger=True):
   data_module.setup('fit')
@@ -195,69 +224,60 @@ def train(data_module, hparams, *, plot=True, logger=True):
   chk_path = get_project_root() / 'models'
 
   model = BaseRNNModel(
-    input_size=input_size,
-    h=data_module.h,
-    model=hparams.model_name,
-    hidden_size=hparams.hidden_size,
-    num_layers=hparams.num_layers,
-    dropout=hparams.dropout,
-    pooling=hparams.pooling
+      input_size=input_size,
+      h=data_module.h,
+      model=hparams.model_name,
+      hidden_size=hparams.hidden_size,
+      num_layers=hparams.num_layers,
+      dropout=hparams.dropout,
+      pooling=hparams.pooling
   )
   module = TemperaturePredictor(model, learning_rate=hparams.lr)
 
-  # W&B logger
   if logger:
-    config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
-
-    # Capturamos información de preprocessing
-    group_id = str(uuid.uuid4())
-    preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
-
-    wandb_logger = WandbLogger(
-      project='temperature-forecasting',
-      name=f'train_{group_id}',
-      config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
-      log_model=True,
-      checkpoint_name=hparams.model_name,
-      job_type='train',
-      group=group_id
-    )
-
-    # Asociamos el artefacto de preprocessing
-    wandb_logger.use_artifact(preprocessing_artifact_ref)
+      config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
+      group_id = str(uuid.uuid4())
+      preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
+      wandb_logger = WandbLogger(
+          project='temperature-forecasting',
+          name=f'train_{group_id}',
+          config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
+          log_model=True,
+          checkpoint_name=hparams.model_name,
+          job_type='train',
+          group=group_id
+      )
+      wandb_logger.use_artifact(preprocessing_artifact_ref)
   else:
-    wandb_logger = None
+      wandb_logger = None
 
-  # ModelCheckpoint with W&B integration
   checkpoint_callback = ModelCheckpoint(
-    monitor='val_loss',
-    filename=hparams.model_name,
-    dirpath=chk_path,
-    enable_version_counter=False,
-    save_top_k=1,
-    mode='min'
+      monitor='val_loss',
+      filename=hparams.model_name,
+      dirpath=chk_path,
+      enable_version_counter=False,
+      save_top_k=1,
+      mode='min'
   )
 
   callbacks = [
-    EarlyStopping(monitor='val_loss', patience=5),
-    checkpoint_callback
+      EarlyStopping(monitor='val_loss', patience=5),
+      checkpoint_callback
   ]
   if plot:
-    callbacks.append(PlotCallback())
+      callbacks.append(PlotCallback())
 
   trainer = Trainer(
-    deterministic=True,
-    callbacks=callbacks,
-    max_epochs=hparams.epochs,
-    logger=wandb_logger
+      deterministic=True,
+      callbacks=callbacks,
+      max_epochs=hparams.epochs,
+      logger=wandb_logger
   )
 
   trainer.fit(module, data_module)
   trainer.test(module, data_module)
 
-  if wandb_logger:
-    wandb_logger.finalize("success")
-# pylint: enable=too-many-arguments
+  _export_model(trainer, module, hparams, input_size, wandb_logger)
 
 if __name__ == "__main__":
   args = load_hyperparams()
