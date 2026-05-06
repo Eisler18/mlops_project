@@ -17,3 +17,6 @@ htmlcov/
 
 # WandB logs
 wandb/
+
+# Ignore CSV files
+data/*.csv
