@@ -104,6 +104,7 @@ def test_load_hyperparams():
   assert hasattr(hyperparams, 'num_layers')
   assert hasattr(hyperparams, 'seed')
   assert hasattr(hyperparams, 'pooling')
+  assert hasattr(hyperparams, 'data_filename')
 
 @pytest.mark.skip(reason="Requires internet connection to download dataset from Kaggle")
 def test_prepare_data_module():

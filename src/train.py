@@ -132,6 +132,7 @@ class BaseRNNModel(nn.Module):
 def load_hyperparams(config_path='hyperparams', args_list=None):
   config = load_config(config_path)
   training_config = config['training_config']
+  data_config = config.get('data_config', {})
 
   parser = argparse.ArgumentParser(description='Train a temperature predictor model.')
   parser.add_argument('--batch_size', type=int, default=training_config['batch_size'], help='Batch size for training')
@@ -168,6 +169,12 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   )
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
   parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
+  parser.add_argument(
+    '--data_filename',
+    type=str,
+    default=data_config.get('data_filename', 'cleaned_weather.csv'),
+    help='CSV filename inside the data folder'
+  )
   parser.add_argument(
     '--reduction_strategy',
     type=str,
