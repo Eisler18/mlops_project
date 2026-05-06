@@ -20,3 +20,7 @@ wandb/
 
 # Ignore CSV files
 data/*.csv
+
+# DVC cache and tmp
+.dvc/cache
+.dvc/tmp
