@@ -38,12 +38,12 @@ class TemperatureDataModule(LightningDataModule):
   ):
     super().__init__()
     # Cargamos el dataset desde el archivo CSV
-    data_path = get_project_root() / 'data' / data_filename
+    self.data_path = get_project_root() / 'data' / data_filename
 
-    if not data_path.exists():
-      raise FileNotFoundError(f'Dataset not found at {data_path}. Place the CSV in the data/ folder.')
+    if not self.data_path.exists():
+      raise FileNotFoundError(f'Dataset not found at {self.data_path}. Place the CSV in the data/ folder.')
 
-    self.data = pd.read_csv(data_path, parse_dates=['date'])
+    self.data = pd.read_csv(self.data_path, parse_dates=['date'])
 
     # Inicalizamos los atributos de la clase
     self.w = w
@@ -229,6 +229,10 @@ class TemperatureDataModule(LightningDataModule):
         # Cargamos los archivos al artefacto
         preprocessing_artifact.add_file(str(feature_scaler_path), name="feature_scaler.pkl")
         preprocessing_artifact.add_file(str(target_scaler_path), name="target_scaler.pkl")
+
+        dataset_dvc_path = Path(f'{self.data_path}.dvc')
+        if dataset_dvc_path.exists():
+          preprocessing_artifact.add_file(str(dataset_dvc_path), name=dataset_dvc_path.name)
 
         if self.reductor is not None:
           preprocessing_artifact.add_file(str(reductor_path), name="reductor.pkl")
