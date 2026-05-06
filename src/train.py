@@ -9,8 +9,7 @@ from pytorch_lightning import seed_everything, LightningModule, Trainer, Callbac
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
-import kagglehub
-from kagglehub import KaggleDatasetAdapter
+import pandas as pd
 
 from data_module import TemperatureDataModule
 from utils import load_config, get_project_root
@@ -185,13 +184,13 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
 
   return parser.parse_args(args_list)
 
-def prepare_data_module(batch_size, w, h, reduction_strategy=None):
-  df = kagglehub.dataset_load(
-    KaggleDatasetAdapter.PANDAS,
-    'alistairking/weather-long-term-time-series-forecasting',
-    'cleaned_weather.csv',
-    pandas_kwargs={'parse_dates': ['date']}
-  )
+def prepare_data_module(batch_size, w, h, data_filename='cleaned_weather.csv', reduction_strategy=None):
+  data_path = get_project_root() / 'data' / data_filename
+
+  if not data_path.exists():
+    raise FileNotFoundError(f'Dataset not found at {data_path}. Place the CSV in the data/ folder.')
+
+  df = pd.read_csv(data_path, parse_dates=['date'])
 
   return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
 
@@ -272,7 +271,13 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   train(
-    data_module=prepare_data_module(args.batch_size, args.w, args.h, reduction_strategy=args.reduction_strategy),
+    data_module=prepare_data_module(
+      args.batch_size,
+      args.w,
+      args.h,
+      data_filename=args.data_filename,
+      reduction_strategy=args.reduction_strategy
+    ),
     hparams=args,
     plot=args.plot
   )

@@ -106,8 +106,32 @@ def test_load_hyperparams():
   assert hasattr(hyperparams, 'pooling')
   assert hasattr(hyperparams, 'data_filename')
 
-@pytest.mark.skip(reason="Requires internet connection to download dataset from Kaggle")
-def test_prepare_data_module():
+def test_prepare_data_module(tmp_path, monkeypatch):
+  data_dir = tmp_path / 'data'
+  data_dir.mkdir()
+
+  df = pd.DataFrame({
+    'date': pd.date_range(start='2023-01-01', periods=30, freq='10min'),
+    'feature1': range(30),
+    'feature2': range(30, 60),
+    'feature3': range(60, 90),
+    'feature4': range(90, 120),
+    'feature5': range(120, 150),
+    'feature6': range(150, 180),
+    'feature7': range(180, 210),
+    'feature8': range(210, 240),
+    'feature9': range(240, 270),
+    'feature10': range(270, 300),
+    'feature11': range(300, 330),
+    'feature12': range(330, 360),
+    'feature13': range(360, 390),
+    'T': range(390, 420)
+  })
+  csv_path = data_dir / 'cleaned_weather.csv'
+  df.to_csv(csv_path, index=False)
+
+  monkeypatch.setattr('train.get_project_root', lambda: tmp_path)
+
   data_module = prepare_data_module(batch_size=32, w=4, h=1)
   assert isinstance(data_module, TemperatureDataModule)
   assert data_module.batch_size == 32
