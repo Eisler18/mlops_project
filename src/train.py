@@ -9,7 +9,6 @@ from pytorch_lightning import seed_everything, LightningModule, Trainer, Callbac
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from data_module import TemperatureDataModule
 from utils import load_config, get_project_root
@@ -184,25 +183,15 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
 
   return parser.parse_args(args_list)
 
-def prepare_data_module(batch_size, w, h, data_filename='cleaned_weather.csv', reduction_strategy=None):
-  data_path = get_project_root() / 'data' / data_filename
-
-  if not data_path.exists():
-    raise FileNotFoundError(f'Dataset not found at {data_path}. Place the CSV in the data/ folder.')
-
-  df = pd.read_csv(data_path, parse_dates=['date'])
-
-  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
-
 # pylint: disable=too-many-arguments
-def train(data_module, hparams, *, plot=True, logger=True):
-  data_module.setup('fit')
-  input_size = data_module.train_dataset.features.shape[1]
+def train(datamodule, hparams, *, plot=True, logger=True):
+  datamodule.setup('fit')
+  input_size = datamodule.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
 
   model = BaseRNNModel(
     input_size=input_size,
-    h=data_module.h,
+    h=datamodule.h,
     model=hparams.model_name,
     hidden_size=hparams.hidden_size,
     num_layers=hparams.num_layers,
@@ -217,7 +206,7 @@ def train(data_module, hparams, *, plot=True, logger=True):
 
     # Capturamos información de preprocessing
     group_id = str(uuid.uuid4())
-    preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
+    preprocessing_artifact_ref = datamodule.log_preprocessing_artifacts(group=group_id)
 
     wandb_logger = WandbLogger(
       project='temperature-forecasting',
@@ -258,8 +247,8 @@ def train(data_module, hparams, *, plot=True, logger=True):
     logger=wandb_logger
   )
 
-  trainer.fit(module, data_module)
-  trainer.test(module, data_module)
+  trainer.fit(module, datamodule)
+  trainer.test(module, datamodule)
 
   if wandb_logger:
     wandb_logger.finalize("success")
@@ -271,11 +260,11 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   train(
-    data_module=prepare_data_module(
-      args.batch_size,
-      args.w,
-      args.h,
+    datamodule=TemperatureDataModule(
       data_filename=args.data_filename,
+      w=args.w,
+      h=args.h,
+      batch_size=args.batch_size,
       reduction_strategy=args.reduction_strategy
     ),
     hparams=args,

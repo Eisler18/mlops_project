@@ -7,9 +7,12 @@ from sklearn.preprocessing import StandardScaler
 
 from data_module import TemperatureDataModule, TemperatureDataset
 
-@pytest.fixture(name='df', scope='session')
-def sample_dataframe():
-  data = {
+@pytest.fixture(name='csv_filename', scope='function')
+def sample_data_file(tmp_path, monkeypatch):
+  data_dir = tmp_path / 'data'
+  data_dir.mkdir()
+
+  df = pd.DataFrame({
     'date': pd.date_range(start='2023-01-01', periods=20, freq='10min'),
     'feature1': range(20),
     'feature2': range(20, 40),
@@ -25,12 +28,22 @@ def sample_dataframe():
     'feature12': range(220, 240),
     'feature13': range(240, 260),
     'T': range(260, 280)
-  }
-  return pd.DataFrame(data)
+  })
+  csv_filename = 'test_data.csv'
+  csv_path = data_dir / csv_filename
+  df.to_csv(csv_path, index=False)
+
+  monkeypatch.setattr('data_module.get_project_root', lambda: tmp_path)
+
+  return csv_filename
+
+@pytest.fixture(name='df', scope='function')
+def sample_dataframe(csv_filename, tmp_path):
+  csv_path = tmp_path / 'data' / csv_filename
+  return pd.read_csv(csv_path, parse_dates=['date'])
 
 class TestTemperatureDataset:
   def test_number_of_samples(self, df):
-    # Inicializamos el dataset
     dataset = TemperatureDataset(df, w=4, h=1)
 
     assert len(dataset) == 16
@@ -45,8 +58,8 @@ class TestTemperatureDataset:
     assert target.shape == (1,)
 
 class TestTemperatureDataModule:
-  def test_initialization(self, df):
-    data_module = TemperatureDataModule(df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
+  def test_initialization(self, csv_filename):
+    data_module = TemperatureDataModule(csv_filename, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
 
     assert data_module.w == 4
     assert data_module.h == 1
@@ -60,8 +73,8 @@ class TestTemperatureDataModule:
     assert isinstance(data_module.feature_scaler, StandardScaler)
     assert isinstance(data_module.target_scaler, StandardScaler)
 
-  def test_setup(self, df):
-    data_module = TemperatureDataModule(df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
+  def test_setup(self, csv_filename):
+    data_module = TemperatureDataModule(csv_filename, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
     data_module.setup(stage='fit')
 
     assert hasattr(data_module, 'train_dataset')
@@ -74,19 +87,19 @@ class TestTemperatureDataModule:
     assert hasattr(data_module, 'test_dataset')
     assert isinstance(data_module.test_dataset, TemperatureDataset)
 
-  def test_reductor(self, df):
+  def test_reductor(self, csv_filename):
     data_module = TemperatureDataModule(
-      df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy='pca'
+      csv_filename, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy='pca'
     )
     assert isinstance(data_module.reductor, PCA)
     assert data_module.train_df.shape[1] == 14
 
     data_module = TemperatureDataModule(
-      df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy='selection'
+      csv_filename, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy='selection'
     )
     assert isinstance(data_module.reductor, SelectKBest)
     assert data_module.train_df.shape[1] == 14
 
-    data_module = TemperatureDataModule(df, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
+    data_module = TemperatureDataModule(csv_filename, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2)
     assert data_module.reductor is None
     assert data_module.train_df.shape[1] == 15

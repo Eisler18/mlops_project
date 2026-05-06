@@ -13,6 +13,8 @@ from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
 import wandb
 
+from utils import get_project_root
+
 class TemperatureDataset(Dataset):
   def __init__(self, df, w=4, h=1):
     self.features = df.drop(columns=['date', 'T']).values
@@ -30,10 +32,20 @@ class TemperatureDataset(Dataset):
 
 # pylint: disable=(too-many-instance-attributes, too-many-arguments)
 class TemperatureDataModule(LightningDataModule):
-  def __init__(self, df, *, w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy=None):
+  def __init__(
+    self, data_filename='cleaned_weather.csv', *,
+    w=4, h=1, batch_size=16, val_size=0.1, test_size=0.2, reduction_strategy=None
+  ):
     super().__init__()
+    # Cargamos el dataset desde el archivo CSV
+    data_path = get_project_root() / 'data' / data_filename
+
+    if not data_path.exists():
+      raise FileNotFoundError(f'Dataset not found at {data_path}. Place the CSV in the data/ folder.')
+
+    self.data = pd.read_csv(data_path, parse_dates=['date'])
+
     # Inicalizamos los atributos de la clase
-    self.data = df
     self.w = w
     self.h = h
     self.batch_size = batch_size
