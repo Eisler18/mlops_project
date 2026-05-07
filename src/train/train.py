@@ -14,8 +14,8 @@ import torch
 from torch import nn
 from torchmetrics import MeanSquaredError
 
-from ..logging.logging_config import setup_logging
-from ..utils import get_project_root, load_config
+from src.logging.logging_config import setup_logging
+from src.utils import get_project_root, load_config
 from .data_module import TemperatureDataModule
 
 setup_logging()
