@@ -15,11 +15,14 @@ class Preprocessor:
   def transform(self, raw_features):
     """
     Args:
-        raw_features: list[float] or np.ndarray (19 features)
-     Returns:
-        np.ndarray: shape (1, n_features)
+      raw_features: list[float] or np.ndarray (19 features)
+    Returns:
+      np.ndarray: shape (1, n_features)
     """
     x = np.array(raw_features, dtype=float).reshape(1, -1)
     if self.scaler is not None:
-        return self.scaler.transform(x)
+      return self.scaler.transform(x)
     return x
+
+  def __repr__(self):
+    return f"Preprocessor(scaler={self.scaler})"

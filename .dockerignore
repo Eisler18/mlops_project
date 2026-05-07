@@ -35,3 +35,6 @@ tests/
 models/
 data/
 config/
+
+# OS files
+.vscode

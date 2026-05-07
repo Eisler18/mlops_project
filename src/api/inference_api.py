@@ -1,18 +1,18 @@
+from contextlib import asynccontextmanager
+import logging
+import numpy as np
+import torch
+
 from fastapi import FastAPI
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
-import torch
-import numpy as np
 
 from src.inference.loader import load_model_and_preprocessor
-from src.data.preprocessing import Preprocessor
+from src.inference.preprocessing import Preprocessor
+from src.logging.logging_config import setup_logging
 from src.utils import load_config
 
-import logging
-from src.logging.logging_config import setup_logging
-
 setup_logging()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # pylint: disable=no-member
 
 class InputData(BaseModel):
   p: float
@@ -39,14 +39,14 @@ class OutputData(BaseModel):
   prediction: float
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(application: FastAPI):
   model, scaler = load_model_and_preprocessor()
   config = load_config("hyperparams")
 
   logger.info("Model and preprocessor loaded successfully, setting up application state...")
-  app.state.model = model
-  app.state.preprocessor = Preprocessor(scaler)
-  app.state.w = config["training_config"]["w"]
+  application.state.model = model
+  application.state.preprocessor = Preprocessor(scaler)
+  application.state.w = config["training_config"]["w"]
 
   logger.info("Application state set up complete, API is ready to serve requests.")
 
