@@ -13,6 +13,8 @@ from pytorch_lightning.loggers import WandbLogger
 import torch
 from torch import nn
 from torchmetrics import MeanSquaredError
+import wandb
+
 
 from src.logging.logging_config import setup_logging
 from src.utils import get_project_root, load_config
@@ -196,11 +198,10 @@ def prepare_data_module(batch_size, w, h, reduction_strategy=None):
   return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
 
 
-def _export_model(trainer, module, hparams, input_size):
-  """Export trained model to .pt format."""
+def _export_model(trainer, module, hparams, input_size, wandb_logger):
+  """Export trained model to .pt format and log to W&B."""
   best_ckpt = Path(trainer.checkpoint_callback.best_model_path)
   pt_path = best_ckpt.with_suffix(".pt")
-
   torch.save(
       {
           "state_dict": module.model.state_dict(),
@@ -210,6 +211,17 @@ def _export_model(trainer, module, hparams, input_size):
       pt_path,
   )
   logger.info("[export] Guardado %s", pt_path)
+  if wandb_logger:
+    artifact = wandb.Artifact(
+        name=f"{hparams.model_name}-clean",
+        type="model",
+        metadata={"input_size": input_size, "model_name": hparams.model_name},
+    )
+    artifact.add_file(str(pt_path))
+    wandb_logger.experiment.log_artifact(artifact)
+    wandb_logger.finalize("success")
+
+
 # pylint: disable=too-many-arguments
 
 def train(data_module, hparams, *, plot=True, use_logger=True):
@@ -236,7 +248,7 @@ def train(data_module, hparams, *, plot=True, use_logger=True):
         project='temperature-forecasting',
         name=f'train_{group_id}',
         config={**config, 'preprocessing_artifact': preprocessing_artifact_ref},
-        log_model=True,
+        log_model=False,
         checkpoint_name=hparams.model_name,
         job_type='train',
         group=group_id
@@ -271,7 +283,11 @@ def train(data_module, hparams, *, plot=True, use_logger=True):
   trainer.fit(module, data_module)
   trainer.test(module, data_module)
 
-  _export_model(trainer, module, hparams, input_size)
+  _export_model(trainer, module, hparams, input_size, wandb_logger)
+
+  if wandb_logger:
+    wandb_logger.finalize("success")
+
 
 if __name__ == "__main__":
   args = load_hyperparams()
