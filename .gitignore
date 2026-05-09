@@ -19,9 +19,8 @@ htmlcov/
 wandb/
 
 # Ignore OS files
-.vscode
+.vscode/
 
 # Ignore model files
-.pkl
-
-.pt
+*.pkl
+*.pt
