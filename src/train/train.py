@@ -228,7 +228,7 @@ def train(data_module, hparams, *, plot=True, use_logger=True):
   )
   module = TemperaturePredictor(model, learning_rate=hparams.lr)
 
-  if use_logger:
+  if log_experiment:
     config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
     group_id = str(uuid.uuid4())
     preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
