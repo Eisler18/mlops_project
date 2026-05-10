@@ -13,5 +13,20 @@ services:
       - UV_NO_DEV=1
     # Run with: docker-compose run train
 
-  #TODO
-  #api:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: inference_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./config:/app/config
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped  
+  
