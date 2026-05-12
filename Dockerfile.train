@@ -13,5 +13,5 @@ RUN uv sync --locked
 # Copy project code
 COPY . .
 
-ENTRYPOINT ["uv", "run", "python", "src/train.py"]
+ENTRYPOINT ["uv", "run", "python", "-m", "src.train.train"]
 CMD ["--help"]

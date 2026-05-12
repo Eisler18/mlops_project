@@ -13,8 +13,8 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 
-from src.logging.logging_config import setup_logging
-from src.utils import get_project_root, load_config
+from ..logging.logging_config import setup_logging
+from ..utils import get_project_root, load_config
 from .data_module import TemperatureDataModule
 
 setup_logging()

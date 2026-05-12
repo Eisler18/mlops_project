@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
 import wandb
 
-from utils import get_project_root
+from ..utils import get_project_root
 
 class TemperatureDataset(Dataset):
   def __init__(self, df, w=4, h=1):
