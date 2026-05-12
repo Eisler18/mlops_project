@@ -5,7 +5,7 @@ from sklearn.decomposition import PCA
 from sklearn.feature_selection import SelectKBest
 from sklearn.preprocessing import StandardScaler
 
-from data_module import TemperatureDataModule, TemperatureDataset
+from train.data_module import TemperatureDataModule, TemperatureDataset
 
 @pytest.fixture(name='df', scope='session')
 def sample_dataframe():

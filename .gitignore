@@ -17,3 +17,10 @@ htmlcov/
 
 # WandB logs
 wandb/
+
+# Ignore OS files
+.vscode/
+
+# Ignore model files
+*.pkl
+*.pt
