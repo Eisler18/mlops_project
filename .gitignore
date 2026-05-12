@@ -2,13 +2,18 @@
 .env
 .venv
 
+# Ignore OS files
+.vscode/
+
 # Cache files
 __pycache__/
 .ipynb_checkpoints/
 lightning_logs/
 
-# Ignore model checkpoints
+# Ignore model and checkpoints
 *.ckpt
+*.pkl
+*.pt
 
 # Ignore test and coverage reports
 .pytest_cache/

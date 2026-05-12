@@ -132,7 +132,7 @@ def test_train_loop(data_module):
     datamodule=data_module,
     hparams=hparams,
     plot=False,
-    logger=False
+    use_logger=False
   )
 
   chk_path = get_project_root() / 'models' / 'rnn.ckpt'
