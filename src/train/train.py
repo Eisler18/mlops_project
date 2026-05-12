@@ -4,25 +4,21 @@ import logging
 import uuid
 from pathlib import Path
 
-import kagglehub
-from kagglehub import KaggleDatasetAdapter
+import torch
+from torch import nn
+from torchmetrics import MeanSquaredError
 import matplotlib.pyplot as plt
 from pytorch_lightning import Callback, LightningModule, Trainer, seed_everything
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-import torch
-from torch import nn
-from torchmetrics import MeanSquaredError
 import wandb
 
-
-from src.logging.logging_config import setup_logging
-from src.utils import get_project_root, load_config
+from ..logging.logging_config import setup_logging
+from ..utils import get_project_root, load_config
 from .data_module import TemperatureDataModule
 
 setup_logging()
 logger = logging.getLogger(__name__)  # pylint: disable=no-member
-
 
 # pylint: disable=arguments-differ
 class TemperaturePredictor(LightningModule):
@@ -141,6 +137,7 @@ class BaseRNNModel(nn.Module):
 def load_hyperparams(config_path='hyperparams', args_list=None):
   config = load_config(config_path)
   training_config = config['training_config']
+  data_config = config.get('data_config', {})
 
   parser = argparse.ArgumentParser(description='Train a temperature predictor model.')
   parser.add_argument('--batch_size', type=int, default=training_config['batch_size'], help='Batch size for training')
@@ -178,6 +175,12 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   parser.add_argument('--epochs', type=int, default=training_config['epochs'], help='Number of training epochs')
   parser.add_argument('--plot', action='store_true', help='Whether to plot training/validation losses after training')
   parser.add_argument(
+    '--data_filename',
+    type=str,
+    default=data_config.get('data_filename', 'cleaned_weather.csv'),
+    help='CSV filename inside the data folder'
+  )
+  parser.add_argument(
     '--reduction_strategy',
     type=str,
     default=None,
@@ -186,17 +189,6 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
   )
 
   return parser.parse_args(args_list)
-
-def prepare_data_module(batch_size, w, h, reduction_strategy=None):
-  df = kagglehub.dataset_load(
-    KaggleDatasetAdapter.PANDAS,
-    'alistairking/weather-long-term-time-series-forecasting',
-    'cleaned_weather.csv',
-    pandas_kwargs={'parse_dates': ['date']}
-  )
-
-  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
-
 
 def _export_model(trainer, module, hparams, input_size, wandb_logger):
   """Export trained model to .pt format and log to W&B."""
@@ -211,6 +203,7 @@ def _export_model(trainer, module, hparams, input_size, wandb_logger):
       pt_path,
   )
   logger.info("[export] Guardado %s", pt_path)
+
   if wandb_logger:
     artifact = wandb.Artifact(
         name=f"{hparams.model_name}-clean",
@@ -219,31 +212,29 @@ def _export_model(trainer, module, hparams, input_size, wandb_logger):
     )
     artifact.add_file(str(pt_path))
     wandb_logger.experiment.log_artifact(artifact)
-    wandb_logger.finalize("success")
-
 
 # pylint: disable=too-many-arguments
-
-def train(data_module, hparams, *, plot=True, use_logger=True):
-  data_module.setup('fit')
-  input_size = data_module.train_dataset.features.shape[1]
+def train(datamodule, hparams, *, plot=True, use_logger=True):
+  datamodule.setup('fit')
+  input_size = datamodule.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
 
   model = BaseRNNModel(
-      input_size=input_size,
-      h=data_module.h,
-      model=hparams.model_name,
-      hidden_size=hparams.hidden_size,
-      num_layers=hparams.num_layers,
-      dropout=hparams.dropout,
-      pooling=hparams.pooling
+    input_size=input_size,
+    h=datamodule.h,
+    model=hparams.model_name,
+    hidden_size=hparams.hidden_size,
+    num_layers=hparams.num_layers,
+    dropout=hparams.dropout,
+    pooling=hparams.pooling
   )
   module = TemperaturePredictor(model, learning_rate=hparams.lr)
 
   if use_logger:
     config = {k: v for k, v in vars(hparams).items() if k != 'plot'}
     group_id = str(uuid.uuid4())
-    preprocessing_artifact_ref = data_module.log_preprocessing_artifacts(group=group_id)
+    preprocessing_artifact_ref = datamodule.log_preprocessing_artifacts(group=group_id)
+
     wandb_logger = WandbLogger(
         project='temperature-forecasting',
         name=f'train_{group_id}',
@@ -280,12 +271,11 @@ def train(data_module, hparams, *, plot=True, use_logger=True):
       logger=wandb_logger
   )
 
-  trainer.fit(module, data_module)
-  trainer.test(module, data_module)
-
-  _export_model(trainer, module, hparams, input_size, wandb_logger)
+  trainer.fit(module, datamodule)
+  trainer.test(module, datamodule)
 
   if wandb_logger:
+    _export_model(trainer, module, hparams, input_size, wandb_logger)
     wandb_logger.finalize("success")
 
 
@@ -295,7 +285,13 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   train(
-    data_module=prepare_data_module(args.batch_size, args.w, args.h, reduction_strategy=args.reduction_strategy),
+    datamodule=TemperatureDataModule(
+      data_filename=args.data_filename,
+      w=args.w,
+      h=args.h,
+      batch_size=args.batch_size,
+      reduction_strategy=args.reduction_strategy
+    ),
     hparams=args,
     plot=args.plot
   )
