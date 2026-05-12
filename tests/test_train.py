@@ -6,9 +6,9 @@ import pandas as pd
 import torch
 from torch.nn import RNN, LSTM, GRU, L1Loss, Linear
 
-from train import TemperaturePredictor, BaseRNNModel, load_hyperparams, train
-from data_module import TemperatureDataModule
-from utils import get_project_root
+from src.train.train import TemperaturePredictor, BaseRNNModel, load_hyperparams, train
+from src.train.data_module import TemperatureDataModule
+from src.utils import get_project_root
 
 @pytest.fixture(scope='function', name='data_module')
 def data_module_fixture(tmp_path, monkeypatch):
@@ -35,7 +35,7 @@ def data_module_fixture(tmp_path, monkeypatch):
   csv_path = data_dir / 'test_data.csv'
   df.to_csv(csv_path, index=False)
 
-  monkeypatch.setattr('data_module.get_project_root', lambda: tmp_path)
+  monkeypatch.setattr('src.train.data_module.get_project_root', lambda: tmp_path)
 
   return TemperatureDataModule(data_filename='test_data.csv', batch_size=8)
 

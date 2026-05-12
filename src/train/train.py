@@ -4,21 +4,14 @@ import logging
 import uuid
 from pathlib import Path
 
-import kagglehub
-from kagglehub import KaggleDatasetAdapter
+import torch
+from torch import nn
+from torchmetrics import MeanSquaredError
 import matplotlib.pyplot as plt
 from pytorch_lightning import Callback, LightningModule, Trainer, seed_everything
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-import torch
-from torch import nn
-from torchmetrics import MeanSquaredError
-from pytorch_lightning import seed_everything, LightningModule, Trainer, Callback
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
-import matplotlib.pyplot as plt
 import wandb
-
 
 from src.logging.logging_config import setup_logging
 from src.utils import get_project_root, load_config
@@ -26,7 +19,6 @@ from .data_module import TemperatureDataModule
 
 setup_logging()
 logger = logging.getLogger(__name__)  # pylint: disable=no-member
-
 
 # pylint: disable=arguments-differ
 class TemperaturePredictor(LightningModule):
@@ -198,31 +190,6 @@ def load_hyperparams(config_path='hyperparams', args_list=None):
 
   return parser.parse_args(args_list)
 
-# pylint: disable=too-many-arguments
-def train(datamodule, hparams, *, plot=True, logger=True):
-  datamodule.setup('fit')
-  input_size = datamodule.train_dataset.features.shape[1]
-  chk_path = get_project_root() / 'models'
-
-  model = BaseRNNModel(
-    input_size=input_size,
-    h=datamodule.h,
-    model=hparams.model_name,
-    hidden_size=hparams.hidden_size,
-    num_layers=hparams.num_layers,
-    dropout=hparams.dropout,
-    pooling=hparams.pooling
-def prepare_data_module(batch_size, w, h, reduction_strategy=None):
-  df = kagglehub.dataset_load(
-    KaggleDatasetAdapter.PANDAS,
-    'alistairking/weather-long-term-time-series-forecasting',
-    'cleaned_weather.csv',
-    pandas_kwargs={'parse_dates': ['date']}
-  )
-
-  return TemperatureDataModule(df, batch_size=batch_size, w=w, h=h, reduction_strategy=reduction_strategy)
-
-
 def _export_model(trainer, module, hparams, input_size, wandb_logger):
   """Export trained model to .pt format and log to W&B."""
   best_ckpt = Path(trainer.checkpoint_callback.best_model_path)
@@ -236,6 +203,7 @@ def _export_model(trainer, module, hparams, input_size, wandb_logger):
       pt_path,
   )
   logger.info("[export] Guardado %s", pt_path)
+
   if wandb_logger:
     artifact = wandb.Artifact(
         name=f"{hparams.model_name}-clean",
@@ -244,24 +212,21 @@ def _export_model(trainer, module, hparams, input_size, wandb_logger):
     )
     artifact.add_file(str(pt_path))
     wandb_logger.experiment.log_artifact(artifact)
-    wandb_logger.finalize("success")
-
 
 # pylint: disable=too-many-arguments
-
-def train(data_module, hparams, *, plot=True, use_logger=True):
-  data_module.setup('fit')
-  input_size = data_module.train_dataset.features.shape[1]
+def train(datamodule, hparams, *, plot=True, use_logger=True):
+  datamodule.setup('fit')
+  input_size = datamodule.train_dataset.features.shape[1]
   chk_path = get_project_root() / 'models'
 
   model = BaseRNNModel(
-      input_size=input_size,
-      h=data_module.h,
-      model=hparams.model_name,
-      hidden_size=hparams.hidden_size,
-      num_layers=hparams.num_layers,
-      dropout=hparams.dropout,
-      pooling=hparams.pooling
+    input_size=input_size,
+    h=datamodule.h,
+    model=hparams.model_name,
+    hidden_size=hparams.hidden_size,
+    num_layers=hparams.num_layers,
+    dropout=hparams.dropout,
+    pooling=hparams.pooling
   )
   module = TemperaturePredictor(model, learning_rate=hparams.lr)
 
@@ -309,9 +274,8 @@ def train(data_module, hparams, *, plot=True, use_logger=True):
   trainer.fit(module, datamodule)
   trainer.test(module, datamodule)
 
-  _export_model(trainer, module, hparams, input_size, wandb_logger)
-
   if wandb_logger:
+    _export_model(trainer, module, hparams, input_size, wandb_logger)
     wandb_logger.finalize("success")
 
 

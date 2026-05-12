@@ -5,7 +5,7 @@ from sklearn.decomposition import PCA
 from sklearn.feature_selection import SelectKBest
 from sklearn.preprocessing import StandardScaler
 
-from train.data_module import TemperatureDataModule, TemperatureDataset
+from src.train.data_module import TemperatureDataModule, TemperatureDataset
 
 @pytest.fixture(name='csv_filename', scope='function')
 def sample_data_file(tmp_path, monkeypatch):
@@ -33,7 +33,7 @@ def sample_data_file(tmp_path, monkeypatch):
   csv_path = data_dir / csv_filename
   df.to_csv(csv_path, index=False)
 
-  monkeypatch.setattr('data_module.get_project_root', lambda: tmp_path)
+  monkeypatch.setattr('src.train.data_module.get_project_root', lambda: tmp_path)
 
   return csv_filename
 
