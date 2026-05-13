@@ -103,6 +103,8 @@ Las utilidades de inferencia viven en `src/inference/` y se encargan de cargar e
 
 Para un flujo de predicción local, usa directamente las utilidades de inferencia o arranca la capa de API desde `src/api/`. La aplicación FastAPI expone el modelo para peticiones remotas y reutiliza la misma lógica de carga y preprocesado.
 
+Reporte de Weights and Biases para la selección del modelo: [W&B Report](https://api.wandb.ai/links/eisler-aguilar-universidad-polit-cnica-de-madrid/w9ptf1g7)
+
 Los comandos habituales de desarrollo son:
 
 ```bash
