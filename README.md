@@ -113,7 +113,7 @@ uv run uvicorn src.api.inference_api:app --reload
 
 Con Docker:
 ```bash
-docker-compose up -d api # Arranca el servicio de inferencia
+docker-compose up -d --build api # Arranca el servicio de inferencia
 docker-compose down -v api # Detiene el servicio y borra volúmenes para limpiar artefactos locales
 ```
 
