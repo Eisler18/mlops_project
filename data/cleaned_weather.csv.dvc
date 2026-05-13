@@ -1,0 +1,5 @@
+outs:
+- md5: b8d171312d80c7fad3dc3f1a892ad234
+  size: 6866297
+  hash: md5
+  path: cleaned_weather.csv

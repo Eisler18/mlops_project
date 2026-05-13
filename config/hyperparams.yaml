@@ -10,3 +10,6 @@ training_config:
   model_name: lstm
   seed: 42
   epochs: 50
+
+data_config:
+  data_filename: cleaned_weather.csv

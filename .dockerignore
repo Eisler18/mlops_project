@@ -2,6 +2,7 @@
 .git
 .gitignore
 .github
+.dvc
 
 # IDE
 .vscode

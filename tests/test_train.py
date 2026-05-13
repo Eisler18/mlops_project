@@ -6,12 +6,15 @@ import pandas as pd
 import torch
 from torch.nn import RNN, LSTM, GRU, L1Loss, Linear
 
-from src.train.train import TemperaturePredictor, BaseRNNModel, load_hyperparams, prepare_data_module, train
+from src.train.train import TemperaturePredictor, BaseRNNModel, load_hyperparams, train
 from src.train.data_module import TemperatureDataModule
 from src.utils import get_project_root
 
 @pytest.fixture(scope='function', name='data_module')
-def data_module_fixture():
+def data_module_fixture(tmp_path, monkeypatch):
+  data_dir = tmp_path / 'data'
+  data_dir.mkdir()
+
   df = pd.DataFrame({
     'date': pd.date_range(start='2023-01-01', periods=200, freq='10min'),
     'feature1': range(200),
@@ -29,7 +32,12 @@ def data_module_fixture():
     'feature13': range(2400, 2600),
     'T': range(2600, 2800)
   })
-  return TemperatureDataModule(df, batch_size=8)
+  csv_path = data_dir / 'test_data.csv'
+  df.to_csv(csv_path, index=False)
+
+  monkeypatch.setattr('src.train.data_module.get_project_root', lambda: tmp_path)
+
+  return TemperatureDataModule(data_filename='test_data.csv', batch_size=8)
 
 @pytest.fixture(scope='function', name='model')
 def model_fixture(data_module):
@@ -104,14 +112,7 @@ def test_load_hyperparams():
   assert hasattr(hyperparams, 'num_layers')
   assert hasattr(hyperparams, 'seed')
   assert hasattr(hyperparams, 'pooling')
-
-@pytest.mark.skip(reason="Requires internet connection to download dataset from Kaggle")
-def test_prepare_data_module():
-  data_module = prepare_data_module(batch_size=32, w=4, h=1)
-  assert isinstance(data_module, TemperatureDataModule)
-  assert data_module.batch_size == 32
-  assert data_module.w == 4
-  assert data_module.h == 1
+  assert hasattr(hyperparams, 'data_filename')
 
 def test_train_loop(data_module):
   hparams = argparse.Namespace(
@@ -128,7 +129,7 @@ def test_train_loop(data_module):
   )
 
   train(
-    data_module=data_module,
+    datamodule=data_module,
     hparams=hparams,
     plot=False,
     use_logger=False

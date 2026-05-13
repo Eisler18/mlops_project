@@ -17,6 +17,7 @@ dependencies = [
     "torch>=2.11.0",
     "uvicorn>=0.46.0",
     "wandb>=0.26.1",
+    "dvc>=2.0.0",
 ]
 
 [tool.pylint.messages_control]
