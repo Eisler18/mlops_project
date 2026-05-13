@@ -111,8 +111,8 @@ uv run uvicorn src.api.inference_api:app --reload
 
 Con Docker:
 ```bash
-docker-compose build api
-docker-compose run --rm api
+docker-compose up -d api # Arranca el servicio de inferencia
+docker-compose down -v api # Detiene el servicio y borra volúmenes para limpiar artefactos locales
 ```
 
 El servicio espera que haya un artefacto entrenado disponible en `models/`.
