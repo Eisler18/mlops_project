@@ -48,7 +48,7 @@ def load_model_and_preprocessor():
     if not scaler_file.exists():
       raise FileNotFoundError("feature_scaler.pkl not found in preprocessing artifact")
     with open(scaler_file, "rb") as f:
-        scaler = pickle.load(f)
+      scaler = pickle.load(f)
     preprocessor = Preprocessor(scaler)
     logger.info("Preprocessor loaded")
     return base_model, preprocessor, cfg["w"]
