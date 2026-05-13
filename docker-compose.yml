@@ -21,12 +21,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
       - ./models:/app/models
-      - ./config:/app/config
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-    restart: unless-stopped  
-  
+    restart: unless-stopped
+

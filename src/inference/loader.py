@@ -51,6 +51,6 @@ def load_model_and_preprocessor():
       scaler = pickle.load(f)
     preprocessor = Preprocessor(scaler)
     logger.info("Preprocessor loaded")
-    return base_model, preprocessor
+    return base_model, preprocessor, cfg["w"]
   finally:
     run.finish()

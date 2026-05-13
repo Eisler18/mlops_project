@@ -7,9 +7,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from src.inference.loader import load_model_and_preprocessor
-from src.inference.preprocessing import Preprocessor
 from src.logging.logging_config import setup_logging
-from src.utils import load_config
 
 setup_logging()
 logger = logging.getLogger(__name__)  # pylint: disable=no-member
@@ -40,19 +38,14 @@ class OutputData(BaseModel):
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-  model, scaler = load_model_and_preprocessor()
-  config = load_config("hyperparams")
-
+  model, preprocessor, w = load_model_and_preprocessor()
   logger.info("Model and preprocessor loaded successfully, setting up application state...")
   application.state.model = model
-  application.state.preprocessor = Preprocessor(scaler)
-  application.state.w = config["training_config"]["w"]
-
+  application.state.preprocessor = preprocessor
+  application.state.w = w
   logger.info("Application state set up complete, API is ready to serve requests.")
-
   yield
   logger.info("Shutting down and cleaning up...")
-
 
 app = FastAPI(lifespan=lifespan)
 
