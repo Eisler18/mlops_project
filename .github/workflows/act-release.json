@@ -1,0 +1,9 @@
+{
+  "action": "published",
+  "release": {
+    "target_commitish": "main"
+  },
+  "secrets": {
+    "WANDB_API_KEY": "fake_api_key_for_testing"
+  }
+}
