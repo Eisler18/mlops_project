@@ -1,0 +1,24 @@
+# Base image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.10.12 /uv /uvx /bin/
+
+# Copy dependency files first to leverage Docker cache
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --locked
+
+# Copy project files
+COPY . .
+
+# Expose API port
+EXPOSE 8000
+
+# Run FastAPI app
+ENTRYPOINT ["uv", "run", "uvicorn"]
+CMD ["src.api.inference_api:app", "--host", "0.0.0.0", "--port", "8000"]
