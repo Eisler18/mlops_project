@@ -1,0 +1,46 @@
+name: Release smoke test
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  code-quality:
+    uses: ./.github/workflows/code-quality.yml
+
+  smoke-test-api:
+    needs: code-quality
+    if: github.event.release.target_commitish == 'main'
+    runs-on: ubuntu-22.04
+    env:
+      WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image (local)
+        run: docker compose build api
+
+      - name: Prepare .env file
+        run: printf "WANDB_API_KEY=%s\n" "$WANDB_API_KEY" > .env
+
+      - name: Run API container
+        run: docker compose up -d api
+
+      - name: Health check
+        run: |
+          timeout 90s bash -c '
+            until [ "$(docker inspect --format="{{.State.Health.Status}}" inference_api)" = "healthy" ]; do
+              echo "Waiting for API to be healthy..."
+              sleep 5
+            done
+            echo "API is healthy!"
+          '
+
+      - name: Show logs
+        if: always()
+        run: docker compose logs api
+
+      - name: Stop container
+        if: always()
+        run: docker compose down
