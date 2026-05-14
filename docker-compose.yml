@@ -24,7 +24,16 @@ services:
       - ./models:/app/models
     env_file:
       - .env
+    healthcheck:
+      test: [
+        "CMD",
+        "python",
+        "-c",
+        "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      ]
+      interval: 5s
+      timeout: 2s
+      retries: 20
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-
