@@ -5,6 +5,7 @@ import torch
 import wandb
 from src.logging.logging_config import setup_logging
 from src.train import BaseRNNModel
+from src.inference.preprocessing import Preprocessor  # moved to top level
 
 setup_logging()
 logger = logging.getLogger(__name__)  # pylint: disable=no-member
@@ -12,7 +13,6 @@ logger = logging.getLogger(__name__)  # pylint: disable=no-member
 
 def load_model_and_preprocessor():
   logger.info("Loading model and preprocessor from W&B artifacts")
-
   run = wandb.init(project="temperature-forecasting", job_type="inference")
   try:
     # --- MODEL ---
@@ -23,11 +23,9 @@ def load_model_and_preprocessor():
     model_pt = next(Path(model_dir).rglob("*.pt"), None)
     if model_pt is None:
       raise FileNotFoundError("No .pt found in model artifact")
-
     training_run = model_artifact.logged_by()
     cfg = training_run.config
     logger.info("Hparams fetched from W&B run: %s", training_run.name)
-
     checkpoint = torch.load(model_pt, map_location="cpu", weights_only=True)
     base_model = BaseRNNModel(
         input_size=checkpoint["input_size"],
@@ -41,20 +39,18 @@ def load_model_and_preprocessor():
     base_model.load_state_dict(checkpoint["state_dict"])
     base_model.eval()
     logger.info("Model loaded and set to inference mode")
-
-    # --- PREPROCESSOR ---
+    # --- PREPROCESSOR ---                               ← back to 4-space (2-space * 2 levels)
     preproc_artifact = run.use_artifact(
         "eisler-aguilar-universidad-polit-cnica-de-madrid/temperature-forecasting/preprocessing-artifacts:v3"
     )
     preproc_dir = preproc_artifact.download()
-    scaler_file = next(Path(preproc_dir).rglob("*.pkl"), None)
-    if scaler_file is None:
-      raise FileNotFoundError("No scaler found in preprocessing artifact")
-
+    scaler_file = Path(preproc_dir) / "feature_scaler.pkl"
+    if not scaler_file.exists():
+      raise FileNotFoundError("feature_scaler.pkl not found in preprocessing artifact")
     with open(scaler_file, "rb") as f:
-      preprocessor = pickle.load(f)
+      scaler = pickle.load(f)
+    preprocessor = Preprocessor(scaler)
     logger.info("Preprocessor loaded")
-
-    return base_model, preprocessor
+    return base_model, preprocessor, cfg["w"]
   finally:
     run.finish()
