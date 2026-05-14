@@ -12,6 +12,8 @@ jobs:
     needs: code-quality
     if: github.event.release.target_commitish == 'main'
     runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04 # Use a compatible image for act
     env:
       WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
 
