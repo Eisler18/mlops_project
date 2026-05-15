@@ -141,3 +141,5 @@ act release -e .github/workflows/act-release.json -j smoke-test-api
 ```
 <img width="1827" height="906" alt="image" src="https://github.com/user-attachments/assets/8c23fe87-4a71-4ec3-ba4b-7ed4cdccc700" />
 
+El workflow funciona igualmente con GitHub Actions: [v0.0.1-alpha release](https://github.com/Eisler18/mlops_project/releases/tag/v0.0.1-alpha) - [Despliegue](https://github.com/Eisler18/mlops_project/actions/runs/25909145921)
+
