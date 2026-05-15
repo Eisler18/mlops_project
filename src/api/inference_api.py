@@ -50,6 +50,11 @@ async def lifespan(application: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+@app.get("/health")
+def health():
+  return { "status": "ok" }
+
+
 @app.post("/predict")
 def predict(data: InputData):
   raw = list(data.dict().values())

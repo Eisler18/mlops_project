@@ -119,7 +119,7 @@ docker-compose down -v api # Detiene el servicio y borra volúmenes para limpiar
 
 El servicio espera que haya un artefacto entrenado disponible en `models/`.
 
-## Pruebas y CI
+## Pruebas
 
 Antes de abrir un cambio o compartir resultados, valida el repo con:
 
@@ -129,3 +129,15 @@ uv run pylint test src
 ```
 
 Esto ayuda a mantener el proyecto reproducible y alineado con las expectativas de un repositorio bien mantenido en GitHub.
+
+## CI/CD
+
+El proyecto incluye un pipeline de CI/CD configurado en `.github/workflows/` que se activa al publicar un release apuntando a `main`. El pipeline ejecuta pruebas, validaciones de código y despliega. Los code quality checks también se ejecutan en cada push o pull request a `main` para asegurar que el código se mantiene limpio y con buenas prácticas
+
+Ambos flujos pueden ser ejecutados localmente usando `act` para simular los eventos de GitHub y validar el pipeline antes de publicar cambios. Asegúrate de configurar las variables de entorno necesarias para las pruebas locales, como `WANDB_API_KEY`
+```bash
+act pull_request
+act release -e .github/workflows/act-release.json -j smoke-test-api
+```
+<img width="1827" height="906" alt="image" src="https://github.com/user-attachments/assets/8c23fe87-4a71-4ec3-ba4b-7ed4cdccc700" />
+
